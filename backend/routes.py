@@ -3,11 +3,11 @@
 Add routes here and register the blueprint in your application entrypoint.
 """
 from datetime import datetime
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, g
 
 from .database import SessionLocal
 from .models import User
-from .auth import hash_password, verify_password, create_access_token
+from .auth import hash_password, verify_password, create_access_token, require_auth
 
 bp = Blueprint('routes', __name__)
 
@@ -76,5 +76,35 @@ def login():
 
         token = create_access_token(user.id)
         return jsonify({'access_token': token})
+    finally:
+        db.close()
+
+
+@bp.route('/api/me', methods=['GET'])
+@require_auth
+def me():
+    """Return current authenticated user's profile.
+
+    Protected by require_auth which sets g.current_user to the user id.
+    """
+    user_id = getattr(g, 'current_user', None)
+    if not user_id:
+        return jsonify({'error': 'not authenticated'}), 401
+
+    db = SessionLocal()
+    try:
+        user = db.query(User).get(user_id)
+        if not user:
+            return jsonify({'error': 'user not found'}), 404
+
+        return jsonify({
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'role': user.role,
+            'is_active': user.is_active,
+            'created_at': user.created_at,
+            'last_login': user.last_login,
+        })
     finally:
         db.close()
