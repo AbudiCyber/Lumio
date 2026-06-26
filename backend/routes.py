@@ -108,3 +108,54 @@ def me():
         })
     finally:
         db.close()
+
+
+@bp.route('/api/profile', methods=['PUT'])
+@require_auth
+def update_profile():
+    """Update current authenticated user's profile (username and email).
+
+    Protected endpoint. Accepts JSON with optional 'username' and 'email'.
+    Rejects duplicates. Returns the updated user profile.
+    """
+    data = request.get_json(silent=True) or {}
+    new_username = (data.get('username') or '').strip() or None
+    new_email = (data.get('email') or '').strip() or None
+
+    if new_username is None and new_email is None:
+        return jsonify({'error': 'nothing to update'}), 400
+
+    user_id = getattr(g, 'current_user', None)
+    if not user_id:
+        return jsonify({'error': 'not authenticated'}), 401
+
+    db = SessionLocal()
+    try:
+        user = db.query(User).get(user_id)
+        if not user:
+            return jsonify({'error': 'user not found'}), 404
+
+        # Check duplicates for username
+        if new_username and new_username != user.username:
+            if db.query(User).filter(User.username == new_username).first():
+                return jsonify({'error': 'username already taken'}), 400
+            user.username = new_username
+
+        # Check duplicates for email
+        if new_email and new_email != user.email:
+            if db.query(User).filter(User.email == new_email).first():
+                return jsonify({'error': 'email already taken'}), 400
+            user.email = new_email
+
+        db.commit()
+        db.refresh(user)
+
+        return jsonify({
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'role': user.role,
+            'is_active': user.is_active,
+        })
+    finally:
+        db.close()
