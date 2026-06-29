@@ -35,6 +35,9 @@ class ServiceContainer:
         self._services.pop(name, None)
 
     def health(self):
+        """
+        Return the health status.
+        """
         return {
             "services": len(self._services),
             "status": "ready"
