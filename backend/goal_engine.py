@@ -50,7 +50,7 @@ class GoalEngine:
 
         return self.goal
 
-    def health(self):
+        def health(self):
 
         return {
             "status": "ready",
